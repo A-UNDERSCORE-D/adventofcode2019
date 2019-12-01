@@ -21,3 +21,11 @@ func ReadLines(name string) []string {
 
 	return out
 }
+
+// ReadInts is like ReadLines but returns ints instead
+func ReadInts(name string) (out []int) {
+	for _, l := range ReadLines(name) {
+		out = append(out, GetInt(l))
+	}
+	return
+}
