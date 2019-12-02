@@ -21,3 +21,14 @@ Numbers prefixed with `$` are raw pointers, they will be copied verbatim into th
 `$` also supports negative indexes, which will be resolved from the end of the program (but before the literal and register storage)
 
 Running the assembler as simple as `go run intcodeasm.go`
+
+### Example 
+ 
+The following code sets position 0 to the number 1337 by multiplying 13 by 100 and then adding 37
+```
+% go run intcodeasm.go << EOF
+heredoc> mul 13 100 %0
+heredoc> add %0 37 %0
+heredoc> EOF
+Intcode for ASM: 2,9,10,0,1,0,11,0,99,13,100,37
+```
