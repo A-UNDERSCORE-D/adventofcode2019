@@ -15,7 +15,9 @@ Literal numbers are supported for arguments, they will be added at the end of th
 
 
 Additionally, there are two kinds of special arguments. Numbers prefixed with `%` point to registers, these are also added to the end,
-and their pointers are auto resolved. Numbers prefixed with `$` are raw pointers, they will be copied verbatim into the emitted intcode.
+and their pointers are auto resolved. As a special case, `%0` points to position zero (it is equivalent to `$0`)
+
+Numbers prefixed with `$` are raw pointers, they will be copied verbatim into the emitted intcode.
 `$` also supports negative indexes, which will be resolved from the end of the program (but before the literal and register storage)
 
 Running the assembler as simple as `go run intcodeasm.go`
