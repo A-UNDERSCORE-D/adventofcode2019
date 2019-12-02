@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	input := util.ReadLines("{{.Year}}/{{.Day}}/input.txt")
+	input := util.ReadLines("{{.Year}}/{{printf "%02d" .Day}}/input.txt")
 	fmt.Println("Part 1:", part1(input))
 	fmt.Println("Part 2:", part2(input))
 }
