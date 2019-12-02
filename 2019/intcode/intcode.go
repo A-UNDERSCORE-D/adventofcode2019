@@ -1,14 +1,22 @@
 package intcode
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
 
-const (
-	add = iota +1
-	mul
-
-	halt = 99
+	"github.com/A-UNDERSCORE-D/adventofcode/util"
 )
 
+const (
+	Add = 1
+	Mul = 2
+
+	Halt = 99
+)
+
+func New(code string) *IVM {
+	return &IVM{Memory:util.GetInts(strings.Split(code, ","))}
+}
 type IVM struct {
 	Memory []int
 	IP     int
@@ -19,15 +27,15 @@ progLoop:
 	for {
 		op := i.Memory[i.IP]
 		switch op {
-		case add:
+		case Add:
 			args := i.getArgs(3)
 			ptr1, ptr2, retptr := args[0], args[1], args[2]
 			i.Memory[retptr] = i.Memory[ptr1] + i.Memory[ptr2]
-		case mul:
+		case Mul:
 			args := i.getArgs(3)
 			ptr1, ptr2, retptr := args[0], args[1], args[2]
 			i.Memory[retptr] = i.Memory[ptr1] * i.Memory[ptr2]
-		case halt:
+		case Halt:
 			break progLoop
 		default:
 			panic(fmt.Sprintf("unexpected opcode %d at position %d", op, i.IP))
