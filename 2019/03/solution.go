@@ -2,135 +2,105 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
 	"github.com/A-UNDERSCORE-D/adventofcode/util"
 )
 
-func main() {
-	input := util.ReadLines("2019/03/input.txt")
-	t := time.Now()
-	fmt.Printf("Part 1: %s (took %s)\n", part1(input), time.Since(t))
-	fmt.Println("Part 2:", part2(input))
-	// fmt.Println("Part 2:", part2([]string{
-	// 	// "R8,U5,L5,D3",
-	// 	// "U7,R6,D4,L4",
-	// 	// "R75,D30,R83,U83,L12,D49,R71,U7,L72",
-	// 	// "U62,R66,U55,R34,D71,R55,D58,R83",
-	// 	//
-	// 	// "R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51",
-	// 	// "U98,R91,D20,R16,D67,R40,U7,R15,U6,R7",
-	// }))
+type point struct {
+	x int
+	y int
 }
 
-func getAllPointsForPath(in string) []util.Vec2 {
-	out := util.VecSlice{}
-	curPos := util.Vec2{}
-	for _, v := range strings.Split(in, ",") {
-		num := util.GetInt(v[1:])
-		var toAdd util.Vec2
-		switch v[0] {
-		case 'U':
-			toAdd = util.Vec2{X: 0, Y: num}
-		case 'D':
-			toAdd = util.Vec2{X: 0, Y: -num}
-		case 'L':
-			toAdd = util.Vec2{X: -num, Y: 0}
-		case 'R':
-			toAdd = util.Vec2{X: num, Y: 0}
-		}
+func(p *point) add(other point) point {
+	return point{p.x + other.x, p.y + other.y}
+}
 
-		end := curPos.Add(toAdd)
-		l := util.Line{Start: curPos, End: end}
-		res := l.GetStraightLinePoints()
-		for _, v := range res[:len(res)-1] {
-			out = append(out, v)
+func (p *point) distFromOrig() int {
+	return util.Abs(p.x) + util.Abs(p.y)
+}
+
+type pointSlice []point
+func (p pointSlice) indexOf(target point) int {
+	for i, v := range p {
+		if v == target {
+			return i
 		}
-		curPos = end
+	}
+	return -1
+}
+
+type set map[point]struct{}
+
+func (s set) Union(other set) set {
+	out := make(set)
+	for k := range s {
+		if _, exists := other[k]; exists {
+			out[k] = struct{}{}
+		}
 	}
 	return out
 }
 
-func getIntersectsForPoints(pointSet [][]util.Vec2) []util.Vec2 {
-	intersects := make(map[util.Vec2][]int)
-	for i, points := range pointSet {
-		for _, p := range points {
-			if p.X == 0 && p.Y == 0 {
-				continue
-			}
-			if intersects[p] == nil {
-				intersects[p] = make([]int, len(pointSet))
-			}
-			intersects[p][i]++
-		}
+func setFromPoints(points []point) set{
+	out := make(set)
+	for _, p := range points {
+		out[p] = struct{}{}
 	}
-	var is []util.Vec2
-	for p, i := range intersects {
-		if util.MinOf(i...) > 0 {
-			is = append(is, p)
-		}
-	}
-	return is
+	return out
 }
 
-func part1(input []string) string {
-	var pointSet [][]util.Vec2
-	for _, s := range input {
-		pointSet = append(pointSet, getAllPointsForPath(s))
-	}
-	is := getIntersectsForPoints(pointSet)
-	var intersectDists []int
-	for _, v := range is {
-		intersectDists = append(intersectDists, v.TxDist(util.Vec2{}))
-	}
-	return fmt.Sprintf("Minimum for set: %d", util.MinOf(intersectDists...))
+var dirLookup = map[rune]point{
+	'D': {-1, 0},
+	'U': {1, 0},
+	'L': {0, -1},
+	'R': {0, 1},
 }
 
-func findNumberOfStepsToPos(pos util.Vec2, slice []util.Vec2) int {
-	for i, v := range slice {
-		if v == pos {
-			return i
+func str2steps(steps []string) (out []point) {
+	var curPos point
+	out = append(out, curPos)
+	for _, v := range steps {
+		dirPoint := dirLookup[rune(v[0])]
+		num := util.GetInt(v[1:])
+		for i := 0; i < num; i++ {
+			newPos := curPos.add(dirPoint)
+			out = append(out, newPos)
+			curPos = newPos
 		}
 	}
-
-	return -1
+	return out
 }
 
-func sum(in []int) (out int) {
-	for _, i := range in {
-		out += i
-	}
-	return
-}
-
-func part2(input []string) string {
-	var pointSet [][]util.Vec2
-	for _, s := range input {
-		pointSet = append(pointSet, getAllPointsForPath(s))
+func main() {
+	input := util.ReadLines("2019/03/input.txt")
+	t := time.Now()
+	var steps [][]point
+	for _, i := range input {
+		steps = append(steps, str2steps(strings.Split(i, ",")))
 	}
 
-	intersectionDistances := make(map[util.Vec2][]int)
-	is := getIntersectsForPoints(pointSet)
-	for _, v := range is {
-		for _, set := range pointSet {
-			s := findNumberOfStepsToPos(v, set)
-			if s == -1 {
-				panic("asd")
-			}
-			intersectionDistances[v] = append(intersectionDistances[v], s)
+	set1 := setFromPoints(steps[0])
+	set2 := setFromPoints(steps[1])
+
+	intersect := set1.Union(set2)
+	minDist := math.MaxInt64
+	for p := range intersect {
+		if p == (point{0,0}) {
+			continue
 		}
+		minDist = util.Min(minDist, p.distFromOrig())
 	}
+	fmt.Println("Part 1:", minDist, "took:", time.Since(t))
 
-	minDist := 0
-	first := true
-	for _, dists := range intersectionDistances {
-		if first {
-			minDist = sum(dists)
-			first = false
+	var distances []int
+	for k := range intersect {
+		if k == (point{0,0}) {
+			continue
 		}
-		minDist = util.Min(minDist, sum(dists))
+		distances = append(distances, pointSlice(steps[0]).indexOf(k) + pointSlice(steps[1]).indexOf(k))
 	}
-
-	return fmt.Sprint(minDist)
+	fmt.Println("Part 2:", util.MinOf(distances...), "took:", time.Since(t))
 }
