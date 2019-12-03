@@ -13,12 +13,47 @@ func Min(a, b int) int {
 	return a
 }
 
+func MinOf(ints ...int) int {
+	switch len(ints) {
+	case 0:
+		panic("no ints specified")
+	case 1:
+		return ints[0]
+	case 2:
+		return Min(ints[0], ints[1])
+	default:
+		curMin := ints[0]
+		for _, i := range ints[1:] {
+			curMin = Min(curMin, i)
+		}
+		return curMin
+	}
+}
+
 // Max does what it says on the tin, but with ints and not float64s
 func Max(a, b int) int {
 	if a > b {
 		return a
 	}
 	return b
+}
+
+// MaxOf applies Max to multiple ints, returning the largest of all of them
+func MaxOf(ints ...int) int {
+	switch len(ints) {
+	case 0:
+		panic("no ints specified")
+	case 1:
+		return ints[0]
+	case 2:
+		return Max(ints[0], ints[1])
+	default:
+		curMax := ints[0]
+		for _, i := range ints[1:] {
+			curMax = Max(curMax, i)
+		}
+		return curMax
+	}
 }
 
 // Abs returns the absolute value of the given number
