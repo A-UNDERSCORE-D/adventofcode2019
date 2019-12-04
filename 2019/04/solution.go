@@ -33,10 +33,6 @@ func part1(bottom, top int) (out []int) {
 func validateNum(num string) bool {
 	prev := rune(num[0])
 	seenAdj := false
-	if len(num) != 6 {
-		return false
-	}
-
 	for _, r := range num[1:] {
 		if prev > r {
 			return false
