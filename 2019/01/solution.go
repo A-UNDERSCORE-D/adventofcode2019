@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/A-UNDERSCORE-D/adventofcode/util"
 )
@@ -11,18 +12,21 @@ import (
 // 4984866
 
 func main() {
+	start := time.Now()
 	inputOne := util.ReadInts("2019/01/input.txt")
 	out := 0
+	t := time.Now()
 	for _, i := range inputOne {
 		out += getFuelRequired(i)
 	}
-	fmt.Println(out)
-	fmt.Println("part 2")
+	fmt.Println("part 1", out, "took", time.Since(t))
+	t = time.Now()
 	out2 := 0
 	for _, i := range inputOne {
 		out2 += getTotalFuelRequired(i)
 	}
-	fmt.Println(out2)
+	fmt.Println("part 2", out2, "took", time.Since(t))
+	fmt.Println("total:", time.Since(start))
 }
 
 func getTotalFuelRequired(mass int) int {
