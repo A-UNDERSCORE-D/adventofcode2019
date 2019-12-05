@@ -33,9 +33,19 @@ Running the assembler as simple as `go run intcodeasm.go`
  
 The following code sets position 0 to the number 1337 by multiplying 13 by 100 and then adding 37
 ```
-% go run intcodeasm.go << EOF
-heredoc> mul 13 100 %0
-heredoc> add %0 37 %0
+% go run intcodeasm.go << EOF                 
+heredoc> ipt rCount
+heredoc> add -2 rCount rCount
+heredoc> add 0 1 rHigh
+heredoc> add 0 1 rLow
+heredoc> # loop start
+heredoc> add 0 rHigh rStore
+heredoc> add rLow rHigh rHigh
+heredoc> add 0 rStore rLow
+heredoc> add -1 rCount rCount
+heredoc> jnz rCount !-4
+heredoc> out rHigh
+heredoc> halt
 heredoc> EOF
-Intcode for ASM: 2,9,10,0,1,0,11,0,99,13,100,37
+Intcode for ASM: 003,36,00101,-2,36,36,01101,0,1,37,01101,0,1,38,00101,0,37,39,00001,38,37,37,00101,0,39,38,00101,-1,36,36,1005,36,14,004,37,99,0,0,0,0
 ```
