@@ -17,6 +17,8 @@ import (
  halt does what it says on the tin
 */
 
+const
+
 type register struct {
 	id       int
 	content  int
