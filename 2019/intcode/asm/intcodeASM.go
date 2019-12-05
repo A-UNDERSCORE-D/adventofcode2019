@@ -186,9 +186,6 @@ func Tokenise(in string) []Token {
 		}
 		out = append(out, tok)
 	}
-	for _, v := range out {
-		fmt.Printf("%#v\n", v)
-	}
 	return out
 }
 
@@ -265,6 +262,5 @@ func Assemble(in []Token, noAutoHalt bool) string {
 	for range registers {
 		outOpcodes = append(outOpcodes, "0")
 	}
-	fmt.Println(registers)
 	return strings.Join(outOpcodes, ",")
 }
