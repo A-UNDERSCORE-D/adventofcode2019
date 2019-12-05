@@ -18,7 +18,7 @@ add 0 rHigh rStore
 add rLow rHigh rHigh
 add 0 rStore rLow
 add -1 rCount rCount
-jnz rCount .-16
+jnz rCount !-4
 out rHigh
 halt
 `

@@ -67,6 +67,7 @@ const (
 	argPosition
 	argRegister
 	argCodePos
+	argCodePosIns
 )
 
 type arg struct {
@@ -81,7 +82,7 @@ func (a argSlice) argModes() (out []string) {
 	out = make([]string, len(a))
 	for i, arg := range a {
 		switch arg.typ {
-		case argImmediate, argCodePos:
+		case argImmediate, argCodePos, argCodePosIns:
 			out[i] = "1"
 		case argRegister, argPosition:
 			out[i] = "0"
@@ -105,6 +106,12 @@ func newArg(in string) arg {
 		in = in[1:]
 	case '.':
 		out.typ = argCodePos
+		if len(in) == 1 {
+			in = "0"
+		}
+		in = in[1:]
+	case '!':
+		out.typ = argCodePosIns
 		if len(in) == 1 {
 			in = "0"
 		}
@@ -189,11 +196,14 @@ type register struct {
 	codeLoc int
 }
 
-func calculateLength(tokens []Token, noAutoHalt bool) int {
+func calculateLength(tokens []Token, noAutoHalt bool) (int, []int) {
 	l := 0
+	var out []int
 	var seenHalt bool
 	for _, token := range tokens {
-		l += len(token.args) + 1
+		l += 1
+		out = append(out, l)
+		l += len(token.args)
 		if token.opCode == OpHalt {
 			seenHalt = true
 		}
@@ -201,18 +211,22 @@ func calculateLength(tokens []Token, noAutoHalt bool) int {
 	if !noAutoHalt && !seenHalt {
 		l++
 	}
-	return l
+	return l, out
 }
 
 func Assemble(in []Token, noAutoHalt bool) string {
 	registers := map[string]register{}
 	var outOpcodes []string
-	codeLen := calculateLength(in, noAutoHalt)
+	codeLen, insStarts := calculateLength(in, noAutoHalt)
 	curPos := -1
+	curIns := -1
 	getReg := func(a arg) int {
 		switch a.typ {
 		case argCodePos:
 			return curPos - 1 + util.GetInt(a.id)
+		case argCodePosIns:
+			diff := util.GetInt(a.id)
+			return insStarts[curIns+diff]-1
 		case argRegister:
 			if a.id != "0" {
 				r := registers[a.id]
@@ -233,6 +247,7 @@ func Assemble(in []Token, noAutoHalt bool) string {
 	var seenHalt bool
 	for _, token := range in {
 		curPos++
+		curIns++
 		outOpcodes = append(outOpcodes, strings.Join(argSlice(token.args).argModes(), "")+fmt.Sprintf("%02d", token.opCode))
 		if token.opCode == OpHalt {
 			seenHalt = true
@@ -242,6 +257,7 @@ func Assemble(in []Token, noAutoHalt bool) string {
 			curPos++
 		}
 	}
+
 	if !noAutoHalt && !seenHalt {
 		outOpcodes = append(outOpcodes, strconv.Itoa(OpHalt))
 	}
