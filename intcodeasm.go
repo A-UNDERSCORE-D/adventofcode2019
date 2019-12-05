@@ -24,12 +24,7 @@ func main() {
 		code = string(c)
 	}
 
-	a := asm.AsmState{}
-	a.Tokenise(code)
-	ic, err := a.Emit(autoHalt)
-	if err != nil {
-		fmt.Println("error while emitting intcode: ", err)
-	}
+	ic := asm.Assemble(asm.Tokenise(code), !autoHalt)
 
 	fmt.Println("Intcode for ASM:", ic)
 }

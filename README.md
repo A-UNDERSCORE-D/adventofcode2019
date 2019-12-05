@@ -9,16 +9,23 @@ provide a simpler method to writing intcode. Currently it supports the following
 |:---:|:---:|
 |`add a b target`|Adds a to b, and stores the result in target|
 |`mul a b target`|Multiplies a by b, and stores the result in target|
+|`ipt target`|accepts input and stores it in target|
+|`out a`|outputs a|
+|`jnz a target`|Jumps to target if a is not zero (intcode jump if true)|
+|`jez a target`|Jumps to target if a is zero (intcode jump if false)| 
+|`lt a b target`|If a is less than b, set target to 1, 0 otherwise|
+|`eq a b target`|If a equals b, set target to 1, 0 otherwise|
 |`halt`| stops the program|
 
-Literal numbers are supported for arguments, they will be added at the end of the program and pointed to.
+The syntax for arguments is inspired by intel ASM.
 
-
-Additionally, there are two kinds of special arguments. Numbers prefixed with `%` point to registers, these are also added to the end,
-and their pointers are auto resolved. As a special case, `%0` points to position zero (it is equivalent to `$0`)
-
-Numbers prefixed with `$` are raw pointers, they will be copied verbatim into the emitted intcode.
-`$` also supports negative indexes, which will be resolved from the end of the program (but before the literal and register storage)
+|Prefix|Description|
+|:---:|:---:|
+|None |The number as it is literally|
+|`r`  |A register|
+|`$`  |A pointer / positional|
+|`.`  |The current IP (can be added or subtracted from using `.1` and `.-1` respectively|
+|`!`  |The current Instruction number excluding arguments (replaced with the correct IP for jumps etc). Can be added to or subtracted from using `!10` and `!-10` respectively|
 
 Running the assembler as simple as `go run intcodeasm.go`
 
