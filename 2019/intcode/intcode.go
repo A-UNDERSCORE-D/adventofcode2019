@@ -41,6 +41,8 @@ func op2Str(op int) string {
 		return "lt"
 	case Equals:
 		return "eq"
+	case Halt:
+		return "halt"
 	default:
 		return "???"
 	}
@@ -67,6 +69,7 @@ type IVM struct {
 	IP     int
 	Input  chan int
 	Output chan int
+	OutputData []int
 	Debug  bool
 }
 
@@ -162,7 +165,6 @@ progLoop:
 		default:
 			panic(fmt.Sprintf("unexpected opcode %d at position %d", op, i.IP))
 		}
-		i.printIfDebug()
 		i.IP++
 	}
 	close(i.Input)
@@ -207,4 +209,12 @@ func (i *IVM) Print() {
 		}
 	}
 	fmt.Println()
+}
+
+func (i *IVM) HandleOut() {
+	go func() {
+		for x := range i.Output {
+			i.OutputData = append(i.OutputData, x)
+		}
+	}()
 }
