@@ -9,173 +9,138 @@ import (
 )
 
 func main() {
-	input := util.ReadLines("2019/06/input.txt")
-	// input := []string{
-	// 	"COM)B",
-	// 	"B)C",
-	// 	"C)D",
-	// 	"D)E",
-	// 	"E)F",
-	// 	"B)G",
-	// 	"G)H",
-	// 	"D)I",
-	// 	"E)J",
-	// 	"J)K",
-	// 	"K)L",
-	// 	"K)YOU",
-	// 	"I)SAN",
+	// f, _ := os.Create("profile")
+	// pprof.StartCPUProfile(f)
+	// for i := 0; i < 1000; i++ {
+		input := util.ReadLines("2019/06/input.txt")
+		t := time.Now()
+		tree := getNetwork(input)
+		fmt.Println("time to get network:", time.Since(t))
+		t1 := time.Now()
+		fmt.Println("Part 1:", part1(tree), "took:", time.Since(t1))
+		t2 := time.Now()
+		fmt.Println("Part 2:", part2(tree), "took:", time.Since(t2))
+		fmt.Println("total time:", time.Since(t))
 	// }
-	t := time.Now()
-	network := getNetwork(input)
-	fmt.Println("time to get network:", time.Since(t))
-	_ = network
-	t1 := time.Now()
-	fmt.Println("Part 1:", part1(network), "took:", time.Since(t1))
-	t2 := time.Now()
-	fmt.Println("Part 2:", part2(network), "took:", time.Since(t2))
-	fmt.Println("total time:", time.Since(t))
+	// pprof.StopCPUProfile()
 }
 
 type orbit struct {
-	parent *orbit
-	orbits []*orbit
 	name   string
+	parent string
 }
 
-func newOrbit(above *orbit, name string) *orbit {
-	o := &orbit{
-		parent: above,
-		name:   name,
-	}
-	if above != nil {
-		above.orbits = append(above.orbits, o)
-	}
-	return o
+type tree struct {
+	root    string
+	forward map[string]orbit
 }
 
-func (o *orbit) getOrbitWithName(name string) *orbit {
-	if name == o.name {
-		return o
-	}
-
-	for _, obt := range o.orbits {
-		if x := obt.getOrbitWithName(name); x != nil {
-			return x
-		}
-	}
-	return nil
-}
-
-func (o *orbit) countDistanceTo(name string) int {
-	if name == o.name {
+func (t *tree) countDistanceTo(source, target string) int {
+	if target == source {
 		return 0
 	}
+
 	num := 1
-	obt := o.parent
+	parent := t.forward[source].parent
 	for {
-		if obt.name != name {
+		if parent != target {
 			num++
-			obt = obt.parent
+			parent = t.forward[parent].parent
 		} else {
 			return num
 		}
 	}
 }
-func (o *orbit) String() string {
-	return o.name
+
+func (t *tree) getAllAncestors(name string) []string {
+	anc := t.forward[name].parent
+	var out []string
+	for {
+		out = append(out, anc)
+		if anc == t.root {
+			break
+		}
+		anc = t.forward[anc].parent
+	}
+	return out
 }
 
-func (o *orbit) getAllAncestors() (out []*orbit) {
-	obt := o.parent
-	for obt != nil {
-		out = append(out, obt)
-		obt = obt.parent
+func (t *tree) findCommonAncestor(a, b string) orbit {
+	o1, o2 := t.getAllAncestors(a), t.getAllAncestors(b)
+
+	for _, v := range o1 {
+		for _, n := range o2 {
+			if v == n {
+				return t.forward[n]
+			}
+		}
+	}
+	return orbit{}
+}
+
+func (t *tree) findAllWithAncestor(target string) (out []string) {
+	if target == t.root {
+		for k, _ := range t.forward {
+			if k == t.root {
+				continue
+			}
+			out = append(out, k)
+		}
+		return
+	}
+
+	for name, _ := range t.forward {
+		for _, aName := range t.getAllAncestors(name) {
+			if aName == target {
+				out = append(out, name)
+			}
+		}
 	}
 	return
 }
 
-func (o *orbit) findCommonAncestor(other *orbit) *orbit {
-	mine := o.getAllAncestors()
-	theirs := other.getAllAncestors()
-
-	for _, ma := range mine {
-		for _, v := range theirs {
-			if v == ma {
-				return ma
-			}
-		}
-	}
-	return nil
-}
-
-func (o *orbit) countOrbiters() int {
+func (t *tree) countChildrenOfRoot() int {
 	sum := 0
-	for _, obt := range o.orbits {
-		if len(obt.orbits) != 0 {
-			for _, v := range obt.orbits {
-				sum += v.countOrbiters()
-				sum += v.countDistanceTo("COM")
-			}
+	for _, n := range t.forward {
+		if n.name == t.root {
+			continue
 		}
-		sum += obt.countDistanceTo("COM")
+
+		sum += t.countDistanceTo(n.name, t.root)
 	}
 	return sum
 }
 
-type orbit2 struct {
-	name   string
-	parent *orbit2
+func (t *tree) countChildren(name string) int {
+	all := t.findAllWithAncestor(name)
+	sum := 0
+	for _, n := range all {
+		sum += t.countDistanceTo(n, name)
+	}
+	return sum
 }
 
-func getNetwork(input []string) *orbit {
-	baseOrbits := [][2]string{}
+func getNetwork(input []string) *tree {
+	tree := &tree{
+		forward: make(map[string]orbit),
+		root:    "COM",
+	}
 
 	for _, orbitStr := range input {
-		match := strings.Split(orbitStr, ")")
-		// sort.Strings(match)
-		orbitee, orbiter := match[0], match[1]
-		baseOrbits = append(baseOrbits, [2]string{orbitee, orbiter})
+		idx := strings.IndexRune(orbitStr, ')')
+		parent, child := orbitStr[:idx], orbitStr[idx+1:]
+		tree.forward[child] = orbit{name: child, parent: parent}
 	}
-	com := newOrbit(nil, "COM")
-
-	cnt := 0
-	total := 0
-	for len(baseOrbits) != 0 {
-		toRemove := -1
-		cnt++
-		if cnt == 500 {
-			total += cnt
-			fmt.Printf("iteration %d: %d orbits remaining\n", total, len(baseOrbits))
-			cnt = 0
-		}
-
-		for i, pair := range baseOrbits {
-			parent, child := pair[0], pair[1]
-			if o := com.getOrbitWithName(parent); o != nil {
-				toRemove = i
-				newOrbit(o, child)
-				break
-			}
-		}
-
-		if toRemove != -1 {
-			baseOrbits = baseOrbits[:toRemove+copy(baseOrbits[toRemove:], baseOrbits[toRemove+1:])]
-		}
-	}
-	return com
+	return tree
 }
 
-func part1(input *orbit) string {
-	return fmt.Sprint(input.countOrbiters())
+func part1(t *tree) string {
+	return fmt.Sprint(t.countChildrenOfRoot())
 }
 
-func part2(input *orbit) string {
-	you := input.getOrbitWithName("YOU")
-	san := input.getOrbitWithName("SAN")
-	ancestor := you.findCommonAncestor(san)
-	youDist := you.countDistanceTo(ancestor.name)
-	sanDist := san.countDistanceTo(ancestor.name)
-	fmt.Printf("youdist: %d, sandist: %d, total %d\n", youDist, sanDist, youDist+sanDist-2)
-
+func part2(t *tree) string {
+	anc := t.findCommonAncestor("YOU", "SAN")
+	youDist := t.countDistanceTo("YOU", anc.name)
+	sanDist := t.countDistanceTo("SAN", anc.name)
 	return fmt.Sprint(youDist + sanDist - 2)
 }
