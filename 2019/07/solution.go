@@ -41,17 +41,6 @@ func runAmplifiersWithArgs(prog string, args [5]int) int {
 	return out
 }
 
-func rangeSlice(start, stop int) []int {
-	if start > stop {
-		panic("Slice ends before it started")
-	}
-	xs := make([]int, stop-start)
-	for i := 0; i < len(xs); i++ {
-		xs[i] = i + 1 + start
-	}
-	return xs
-}
-
 func permutation(xs []int) (permuts [][]int) {
 	var rc func([]int, int)
 	rc = func(a []int, k int) {
@@ -79,12 +68,26 @@ func randNumGen(nums []int, out chan [5]int) {
 
 func part1(input []string) string {
 	numChan := make(chan [5]int)
-	go randNumGen([]int{0, 1, 2, 3, 4}, numChan)
+	bestChan := make(chan int)
 	best := math.MinInt64
+
+	go func() {
+		for b := range bestChan {
+			best = util.Max(best, b)
+		}
+	}()
+
+	go randNumGen([]int{0, 1, 2, 3, 4}, numChan)
+	wg := sync.WaitGroup{}
 	for args := range numChan {
-		res := runAmplifiersWithArgs(input[0], args)
-		best = util.Max(best, res)
+		wg.Add(1)
+		go func(a [5]int) {
+			bestChan <- runAmplifiersWithArgs(input[0], a)
+			wg.Done()
+		}(args)
 	}
+	wg.Wait()
+	close(bestChan)
 	return fmt.Sprint(best)
 }
 
@@ -130,11 +133,27 @@ func runAmplifiersWithArgs2(prog string, args [5]int) int {
 
 func part2(input []string) string {
 	numChan := make(chan [5]int)
+	resChan := make(chan int)
 	go randNumGen([]int{5,6,7,8,9},  numChan)
 	best := math.MinInt64
-	for args := range numChan {
-		res := runAmplifiersWithArgs2(input[0], args)
-		best = util.Max(best, res)
+	go func() {
+		for res := range resChan {
+			best = util.Max(best, res)
+		}
+	}()
+	wg := sync.WaitGroup{}
+
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			for v := range numChan {
+				resChan <- runAmplifiersWithArgs2(input[0], v)
+			}
+			wg.Done()
+		}()
 	}
+
+	wg.Wait()
+	close(resChan)
 	return fmt.Sprint(best)
 }
