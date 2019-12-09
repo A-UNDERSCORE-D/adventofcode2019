@@ -21,6 +21,7 @@ const (
 	OpLessThan    = intcode.LessThan
 	OpEquals      = intcode.Equals
 	OpHalt        = intcode.Halt
+	OpInit        = -1
 )
 
 var opArgCounts = map[int]int{
@@ -32,6 +33,7 @@ var opArgCounts = map[int]int{
 	OpJumpIfFalse: 2,
 	OpLessThan:    3,
 	OpEquals:      3,
+	OpInit:        2,
 }
 
 var ops = map[int]string{
@@ -44,6 +46,7 @@ var ops = map[int]string{
 	OpLessThan:    "lt",
 	OpEquals:      "eq",
 	OpHalt:        "halt",
+	OpInit:        "init",
 }
 
 func op2Str(op int) string {
@@ -53,19 +56,20 @@ func op2Str(op int) string {
 	return "???"
 }
 
-func str2op(op string) int {
+func str2op(op string) (int, bool) {
 	for k, v := range ops {
 		if v == op {
-			return k
+			return k, true
 		}
 	}
-	return -1
+	return -1, false
 }
 
 const (
 	argImmediate = iota
 	argPosition
 	argRegister
+	argRegisterPtr // literal location for register, ie, a pointer to that register in literal form
 	argCodePos
 	argCodePosIns
 )
@@ -82,7 +86,7 @@ func (a argSlice) argModes() (out []string) {
 	out = make([]string, len(a))
 	for i, arg := range a {
 		switch arg.typ {
-		case argImmediate, argCodePos, argCodePosIns:
+		case argImmediate, argCodePos, argCodePosIns, argRegisterPtr:
 			out[i] = "1"
 		case argRegister, argPosition:
 			out[i] = "0"
@@ -108,13 +112,18 @@ func newArg(in string) arg {
 		out.typ = argCodePos
 		if len(in) == 1 {
 			in = "0"
+			break
 		}
 		in = in[1:]
 	case '!':
 		out.typ = argCodePosIns
 		if len(in) == 1 {
 			in = "0"
+			break
 		}
+		in = in[1:]
+	case '&':
+		out.typ = argRegisterPtr
 		in = in[1:]
 	default:
 		out.typ = argImmediate
@@ -124,13 +133,12 @@ func newArg(in string) arg {
 }
 
 type Token struct {
-	orig      string
-	opCode    int
-	intcodeOp int
-	args      []arg
+	orig   string
+	opCode int
+	args   []arg
 }
 
-var replRe = regexp.MustCompile("(.*)#.*")
+var replRe = regexp.MustCompile("(.*?)#.*")
 
 func splitAndClean(in string) (out []string) {
 	for _, s := range strings.Split(strings.Replace(in, "\n", ";", -1), ";") {
@@ -156,8 +164,8 @@ func cleanSplit(in []string) (out []string) {
 func getToken(in string) (Token, error) {
 	split := strings.Split(in, " ")
 	opStr, argStrs := strings.ToLower(split[0]), cleanSplit(split[1:])
-	op := str2op(opStr)
-	if op == -1 {
+	op, ok := str2op(opStr)
+	if !ok {
 		return Token{}, fmt.Errorf("unknown op %s", opStr)
 	}
 	if len(argStrs) != opArgCounts[op] {
@@ -169,10 +177,9 @@ func getToken(in string) (Token, error) {
 	}
 
 	return Token{
-		orig:      in,
-		opCode:    op,
-		intcodeOp: op,
-		args:      args,
+		orig:   in,
+		opCode: op,
+		args:   args,
 	}, nil
 }
 
@@ -191,6 +198,7 @@ func Tokenise(in string) []Token {
 
 type register struct {
 	codeLoc int
+	content int
 }
 
 func calculateLength(tokens []Token, noAutoHalt bool) (int, []int) {
@@ -198,6 +206,10 @@ func calculateLength(tokens []Token, noAutoHalt bool) (int, []int) {
 	var out []int
 	var seenHalt bool
 	for _, token := range tokens {
+		if token.opCode < 0 {
+			continue
+		}
+
 		l += 1
 		out = append(out, l)
 		l += len(token.args)
@@ -211,38 +223,68 @@ func calculateLength(tokens []Token, noAutoHalt bool) (int, []int) {
 	return l, out
 }
 
-func Assemble(in []Token, noAutoHalt bool) string {
+func Assemble(in []Token, noAutoHalt bool) (asm string, regInfo map[int]string, err error) {
+	// TODO: enough of this single function holds all the state shit. Make. A. Struct.
 	registers := map[string]register{}
 	var outOpcodes []string
 	codeLen, insStarts := calculateLength(in, noAutoHalt)
 	curPos := -1
 	curIns := -1
-	getReg := func(a arg) int {
+	var getReg func(a arg, def int) int
+	getReg = func(a arg, def int) int {
 		switch a.typ {
 		case argCodePos:
 			return curPos - 1 + util.GetInt(a.id)
 		case argCodePosIns:
 			diff := util.GetInt(a.id)
-			return insStarts[curIns+diff]-1
+			return insStarts[curIns+diff] - 1
+		case argRegisterPtr:
+			return getReg(arg{
+				orig: a.orig,
+				typ:  argRegister,
+				id:   a.id[1:],
+			}, def)
 		case argRegister:
 			if a.id != "0" {
 				r := registers[a.id]
 
 				if r.codeLoc == 0 {
-					codeLen++
 					r.codeLoc = codeLen
+					r.content = def
 					registers[a.id] = r
+
+					codeLen++
 				}
-				return r.codeLoc-1
+				return r.codeLoc
 			}
+
 			fallthrough
 		default:
 			return util.GetInt(a.id)
 		}
 	}
 
+	defer func() {
+		// if panik := recover(); panik != nil {
+		// 	err = fmt.Errorf("could not assemble, hit error at position %d: %s", curPos, panik)
+		// }
+	}()
+
 	var seenHalt bool
 	for _, token := range in {
+		if token.opCode < 0 {
+			// Special ops to control the assembler
+			switch token.opCode {
+			case OpInit:
+				// Initialise a register with a value
+				// init register number
+				regStr := token.args[0]
+				toSet := util.GetInt(token.args[1].orig) // we just want the int value, nothing magic
+				getReg(regStr, toSet)
+				continue
+			}
+		}
+
 		curPos++
 		curIns++
 		outOpcodes = append(outOpcodes, strings.Join(argSlice(token.args).argModes(), "")+fmt.Sprintf("%02d", token.opCode))
@@ -250,7 +292,7 @@ func Assemble(in []Token, noAutoHalt bool) string {
 			seenHalt = true
 		}
 		for _, a := range token.args {
-			outOpcodes = append(outOpcodes, strconv.Itoa(getReg(a)))
+			outOpcodes = append(outOpcodes, strconv.Itoa(getReg(a, 0)))
 			curPos++
 		}
 	}
@@ -259,8 +301,17 @@ func Assemble(in []Token, noAutoHalt bool) string {
 		outOpcodes = append(outOpcodes, strconv.Itoa(OpHalt))
 	}
 
-	for range registers {
-		outOpcodes = append(outOpcodes, "0")
+	for _, r := range registers {
+		outOpcodes = append(outOpcodes, strconv.Itoa(r.content))
 	}
-	return strings.Join(outOpcodes, ",")
+	fmt.Println(registers)
+	return strings.Join(outOpcodes, ","), makeRegInfo(registers), nil
+}
+
+func makeRegInfo(in map[string]register) map[int]string {
+	out := make(map[int]string)
+	for k, v := range in {
+		out[v.codeLoc] = k
+	}
+	return out
 }
