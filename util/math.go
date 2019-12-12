@@ -77,3 +77,24 @@ func GetInt(in string) int {
 func RoundDown(in float64) int {
 	return int(math.Trunc(in))
 }
+
+// GCD and LCM copied from https://github.com/sotsoguk/adventOfCode2019_go/blob/a10a0ca4a6f6f31770dfca1e234a08f41f0865b8/utils/mathUtils/mathUtils.go#L79 because I am lazy
+
+
+func Gcd(x, y int64) int64 {
+	for y != 0 {
+
+		x, y = y, x%y
+	}
+	return x
+}
+
+// find Least Common Multiple (LCM) via GCD
+
+func Lcm(a, b int64, integers ...int64) int64 {
+	result := a * b / Gcd(a, b)
+	for i := 0; i < len(integers); i++ {
+		result = Lcm(result, integers[i])
+	}
+	return result
+}
