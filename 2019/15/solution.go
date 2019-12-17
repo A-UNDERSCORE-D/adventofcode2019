@@ -11,16 +11,24 @@ import (
 	"github.com/A-UNDERSCORE-D/adventofcode/util"
 )
 
+var draw = false
+
 func main() {
+	t := time.Now()
 	input := util.ReadLines("2019/15/input.txt")[0]
+	t1 := time.Now()
 	field, node, res := part1(input)
-	fmt.Println("Part 1:", res)
-	fmt.Println(`
+	fmt.Println("Part 1:", res, "took:", time.Since(t1))
+	if draw {
+		fmt.Println(`
 ***********************
 * AND NOW FOR PART 2! *
 ***********************`)
-	time.Sleep(time.Second*2)
-	fmt.Println("Part 2:", part2(field, node))
+		time.Sleep(time.Second * 2)
+	}
+	t2 := time.Now()
+	fmt.Println("Part 2:", part2(field, node), "took:", time.Since(t2))
+	fmt.Println("total time:", time.Since(t))
 }
 
 const (
@@ -110,7 +118,7 @@ type field map[point]*node
 const (
 	chrKnown       = '.'
 	chrWall        = '▓'
-	chrUnknown     = '?'
+	chrUnknown     = ' '
 	chrTarget      = '!'
 	chrDrone       = 'D'
 	chrHighlighted = 'x'
@@ -243,8 +251,6 @@ func (r *robot) PeakAt(direction int) (walkable bool, isTarget bool) {
 	return
 }
 
-var debug = true
-
 func (r *robot) findPathsTo(n *node) []point {
 	ancestor := r.field.findCommonAncestor(r.field[r.pos], n)
 	if ancestor == nil {
@@ -266,7 +272,7 @@ func (r *robot) findPathsTo(n *node) []point {
 	for i := len(pathFromAncestor) - 1; i >= 0; i-- {
 		outPath = append(outPath, pathFromAncestor[i].point)
 	}
-	if debug {
+	if draw {
 		// fmt.Println(outPath)
 	}
 	return outPath
@@ -307,7 +313,7 @@ func (r *robot) moveToSimple(p point) (completed bool, isTarget bool) {
 }
 
 func (r *robot) moveToNode(n *node) { // THis assumes that everywhere already exists
-	if debug {
+	if draw {
 		// fmt.Printf("moving from %v to %v via graph magic\n", r.pos, n.point)
 	}
 	if n.point == r.pos {
@@ -341,7 +347,7 @@ func (r *robot) breadthFirstSearch(keepGoing bool) (int, *node) {
 	distFromStart := -1
 
 	next := func() *node { return (queue.Remove(queue.Front())).(*node) }
-	add := func(n *node) *list.Element { return queue.PushFront(n) }
+	add := func(n *node) *list.Element { return queue.PushBack(n) }
 	var goalLoc *node
 outer:
 	for queue.Len() != 0 {
@@ -351,17 +357,13 @@ outer:
 			fmt.Printf("skipping unwalkable point %s\n", currentNode)
 			continue
 		}
-		if debug {
+		if draw {
 			r.field.Draw("Searching for damaged oxygen generator.....", r.pos, currentNode.point)
 			time.Sleep(time.Millisecond * 20)
 			// fmt.Println("checking node", currentNode)
 		}
 		// move to the current node, look around
 		r.moveToNode(currentNode)
-
-		if currentNode.isTarget {
-			fmt.Printf("target found: %#v, distance taken: %d", currentNode, distFromStart)
-		}
 
 		for i := north; i <= east; i++ {
 			// Get all the nodes that have not been already seen
@@ -389,7 +391,9 @@ outer:
 			}
 		}
 	}
-	r.field.Draw("Found damaged oxygen generator!", point{-5000000000000, -5000000000000}, point{-5000000000000, -5000000000000})
+	if draw {
+		r.field.Draw("Found damaged oxygen generator!", point{-5000000000000, -5000000000000}, point{-5000000000000, -5000000000000})
+	}
 	loc := goalLoc
 	steps := 0
 	for loc.parent != nil {
@@ -450,9 +454,10 @@ func part2(input field, start *node) string {
 		for _, p := range posses {
 			points = append(points, p.point)
 		}
-
-		input.Draw("Allowing oxygen to spread......", start.point, points...)
-		time.Sleep(time.Millisecond * 50)
+		if draw {
+			input.Draw("Allowing oxygen to spread......", start.point, points...)
+			time.Sleep(time.Millisecond * 50)
+		}
 	}
 
 	return fmt.Sprintf("Minutes for oxygen dispersal: %d", step)
