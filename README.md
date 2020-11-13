@@ -1,5 +1,5 @@
 # Advent of Code
-This repo is my answers to the [advent of code](https://adventofcode.com). Solutions will be published once the leader boards are full
+This repo is my answers to the 2019 [advent of code](https://adventofcode.com). Solutions will be published once the leader boards are full
 
 ## Intcode ASM
 I have created an intcode assembler. It uses a custom assembly language to 
